@@ -25,7 +25,7 @@ import static com.bdajaya.adminku.db.migration.Migrations.MIGRATION_5_6;
         StockTransaction.class,
         Brand.class,
         ProductFts.class
-}, version = 6, exportSchema = true)
+}, version = 6, exportSchema = false)
 @TypeConverters({DateConverter.class, StringListConverter.class})
 public abstract class AppDatabase extends RoomDatabase  {
     private static final String DATABASE_NAME = "adminku_db";

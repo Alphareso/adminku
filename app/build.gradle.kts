@@ -1,187 +1,86 @@
-import java.io.FileInputStream
 import java.util.Properties
-import java.time.LocalDateTime
 
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp") version "1.9.22-1.0.17"
-    id("com.google.dagger.hilt.android") version "2.48"
-    kotlin("kapt")
+    id("com.google.devtools.ksp")
+    id("kotlin-kapt")
+    id("com.google.dagger.hilt.android")
 }
 
-// Load keystore properties dari file terpisah (tidak di-commit ke Git)
 val keystorePropertiesFile = rootProject.file("keystore.properties")
-val keystoreProperties = Properties()
-
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
+    } else {
+        logger.warn("Signing file keystore.properties not found at ${keystorePropertiesFile.absolutePath}")
+    }
 }
 
 android {
     namespace = "com.bdajaya.adminku"
-    // PERBAIKAN: Update ke versi Android terbaru
     compileSdk = 36
-    // PERBAIKAN: Tambah ini untuk target SDK terbaru
-    buildToolsVersion = "35.0.0"
-
     defaultConfig {
         applicationId = "com.bdajaya.adminku"
         minSdk = 28
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
         vectorDrawables {
             useSupportLibrary = true
         }
-
-        // ProGuard configuration files
-        proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
-            "proguard-rules.pro"
-        )
-
-        // Hanya sertakan resource untuk bahasa Indonesia dan Inggris
-        @Incubating
-        androidResources.localeFilters += setOf("id", "en")
-
-        buildConfigField("boolean", "IS_DEBUG", "false")
-        buildConfigField("String", "BUILD_TIME", "\"${System.currentTimeMillis()}\"")
-    }
-
-    // Room annotation processor configuration untuk KSP
-    ksp {
-        arg("room.schemaLocation", "$projectDir/schemas")
-        arg("room.incremental", "true")
-        arg("room.expandProjection", "true")
     }
 
     signingConfigs {
-        // Release signing configuration
-        val release by creating {
-            val storeFilePath = keystoreProperties.getProperty("storeFile")
-            if (storeFilePath != null) {
-                val keystoreFile = file(storeFilePath)
-                if (keystoreFile.exists()) {
-                    storeFile = keystoreFile
-                    storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-                    keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-                    keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
-
-                    enableV1Signing = true
-                    enableV2Signing = true
-                    enableV3Signing = true
-                    enableV4Signing = true
-
-                    storeFile?.let { file ->
-                        println("Using release keystore: ${file.absolutePath}")
-                    }
-                } else {
-                    println("WARNING: Release keystore file not found at: $storeFilePath")
-                    setupDebugKeystore(this)
-                }
-            } else {
-                println("WARNING: Release keystore path not configured.")
-                setupDebugKeystore(this)
+        val releaseConfig = create("release") {
+            if (keystoreProperties.isNotEmpty()) {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
             }
         }
-
-        // Debug signing configuration - GUNAKAN RELEASE KEYSTORE
         getByName("debug") {
-            val storeFilePath = keystoreProperties.getProperty("storeFile")
-            if (storeFilePath != null) {
-                val keystoreFile = file(storeFilePath)
-                if (keystoreFile.exists()) {
-                    storeFile = keystoreFile
-                    storePassword = keystoreProperties.getProperty("storePassword") ?: ""
-                    keyAlias = keystoreProperties.getProperty("keyAlias") ?: ""
-                    keyPassword = keystoreProperties.getProperty("keyPassword") ?: ""
-
-                    enableV1Signing = true
-                    enableV2Signing = true
-                    enableV3Signing = true
-                    enableV4Signing = true
-
-                    storeFile?.let { file ->
-                        println("Using release keystore for debug builds: ${file.absolutePath}")
-                    }
-                } else {
-                    println("WARNING: Release keystore file not found at: $storeFilePath")
-                    setupDebugKeystore(this)
-                    println("Using default debug keystore")
-                }
-            } else {
-                println("WARNING: Release keystore path not configured.")
-                setupDebugKeystore(this)
-                println("Using default debug keystore")
+            if (keystoreProperties.isNotEmpty()) {
+                initWith(releaseConfig)
             }
         }
     }
-
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
-            signingConfig = signingConfigs.getByName("release")
-
             isDebuggable = false
-            isJniDebuggable = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
 
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-
-            buildConfigField("String", "API_BASE_URL", "\"https://api.production.com\"")
-            buildConfigField("boolean", "ENABLE_LOGGING", "false")
+            buildConfigField("boolean", "IS_DEBUG", "false")
         }
-
-        // Build type khusus development
-        create("development") {
-            initWith(getByName("debug"))
+        debug {
+            signingConfig = if (keystoreProperties.isNotEmpty()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isDebuggable = true
+            enableAndroidTestCoverage = true
             isMinifyEnabled = false
             isShrinkResources = false
-            isDebuggable = true
-            matchingFallbacks += listOf("debug")
 
-            // Nonaktifkan lint dan testing untuk build development
-            enableUnitTestCoverage = false
-            enableAndroidTestCoverage = false
+            buildConfigField("boolean", "IS_DEBUG", "true")
         }
-
-
-        debug {
-            isMinifyEnabled = false
-            isDebuggable = true
-            signingConfig = signingConfigs.getByName("debug")
-
-            buildConfigField("String", "API_BASE_URL", "\"https://api.staging.com\"")
-            buildConfigField("boolean", "ENABLE_LOGGING", "true")
-
-            enableUnitTestCoverage = true
-            enableAndroidTestCoverage = true
-        }
-
-        // Nonaktifkan untuk debug builds
-        splits {
-            abi {
-                isEnable = false
-            }
-        }
-
     }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-
-        // Enable desugaring untuk API levels yang lebih lama
-        isCoreLibraryDesugaringEnabled = true
     }
-
+    kotlinOptions {
+        jvmTarget = JavaVersion.VERSION_17.toString()
+    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -191,89 +90,32 @@ android {
         renderScript = false
         shaders = false
     }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-    }
-
     packaging {
         resources {
             excludes += setOf(
                 "/META-INF/{AL2.0,LGPL2.1}",
                 "/META-INF/LICENSE*",
-                "/META-INF/NOTICE*",
-                "**/kotlin/**",
-                "**/DebugProbesKt.bin",
-                "META-INF/versions/9/previous-compilation-data.bin",
-                "META-INF/*.version",
-                "**/*.proto"
+                "/META-INF/NOTICE*"
             )
-
-            // Untuk debug, kurangin eksklusi untuk mempercepat
-            pickFirsts += setOf(
-                "**/META-INF/kotlin-stdlib-*.kotlin_module"
-            )
-        }
-        jniLibs {
-            useLegacyPackaging = false
         }
     }
-
     lint {
         abortOnError = true
         checkReleaseBuilds = true
-        disable += setOf("MissingTranslation", "ExtraTranslation")
+        disable += setOf("MissingTranslation", "ExtraTranslation", "ConstPropertyName")
         enable += setOf("ObsoleteLintCustomCheck", "GradleDependency")
 
         // Tambah lint check untuk target SDK
         checkOnly += setOf("NewApi", "InlinedApi", "OldTargetApi")
     }
-
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
-        }
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
-        // Simplify compiler args
-        freeCompilerArgs = freeCompilerArgs + listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xjvm-default=all"
-        )
-    }
-}
-
-tasks.withType<JavaCompile>().configureEach {
-    options.encoding = "UTF-8"
-    options.compilerArgs.addAll(listOf("-Xlint:unchecked", "-Xlint:deprecation"))
-}
-
-// Simple function tanpa generic issues
-fun setupDebugKeystore(signingConfig: com.android.build.api.dsl.SigningConfig) {
-    val debugKeystorePath = "${System.getProperty("user.home")}/.android/debug.keystore"
-    val debugKeystoreFile = file(debugKeystorePath)
-
-    if (debugKeystoreFile.exists()) {
-        signingConfig.storeFile = debugKeystoreFile
-        signingConfig.storePassword = "android"
-        signingConfig.keyAlias = "androiddebugkey"
-        signingConfig.keyPassword = "android"
-        println("Fallback to debug keystore: ${debugKeystoreFile.absolutePath}")
-    } else {
-        println("ERROR: Debug keystore not found at: $debugKeystorePath")
-    }
 }
 
 dependencies {
+
     // Hilt dependencies
-    implementation("com.google.dagger:hilt-android:2.48")
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    kapt("com.google.dagger:hilt-compiler:2.51.1")
     implementation("androidx.preference:preference:1.2.1")
-    kapt("com.google.dagger:hilt-compiler:2.48")
 
     // Core library desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
@@ -323,57 +165,7 @@ dependencies {
 
     // Testing
     testImplementation("junit:junit:4.13.2")
+    kaptTest("com.google.dagger:hilt-compiler:2.48")
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.7.0")
-}
-
-// Task untuk build analysis
-tasks.register("analyzeBuild") {
-    dependsOn("lintDebug", "testDebugUnitTest")
-    doLast {
-        println("Build analysis completed!")
-    }
-}
-
-// Task untuk generate release notes secara otomatis
-tasks.register("generateReleaseNotes") {
-    doLast {
-        val versionName = android.defaultConfig.versionName
-        val versionCode = android.defaultConfig.versionCode
-        val releaseNotes = """
-            Version: $versionName ($versionCode)
-            Build Date: ${LocalDateTime.now()}
-            Build Type: Release
-        """.trimIndent()
-
-        val outputFile = file("${project.layout.buildDirectory}/outputs/release-notes.txt")
-        outputFile.parentFile.mkdirs()
-        outputFile.writeText(releaseNotes)
-
-        println("Release notes generated: ${outputFile.absolutePath}")
-    }
-}
-
-// Hook release notes generation setelah assemble
-// tasks.named("assembleRelease") {
-//     finalizedBy("generateReleaseNotes")
-// }
-
-// Task untuk check Android version compatibility
-tasks.register("checkAndroidCompatibility") {
-    doLast {
-        println("Android Compatibility Check:")
-        println("- compileSdk: ${android.compileSdk}")
-        println("- targetSdk: ${android.defaultConfig.targetSdk}")
-        println("- minSdk: ${android.defaultConfig.minSdk}")
-        println("- Latest Android Version: Android 14 (API 34)")
-
-        android.defaultConfig.targetSdk?.let {
-            if (it < 34) {
-                println("WARNING: Not targeting latest Android version. Consider updating targetSdk to 34.")
-            } else {
-                println("SUCCESS: Targeting latest Android version.")
-            }
-        }
-    }
 }

@@ -6,8 +6,8 @@ import android.content.res.TypedArray;
 import android.net.Uri;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.style.ForegroundColorSpan;
 import android.text.TextUtils;
+import android.text.style.ForegroundColorSpan;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
 import android.widget.FrameLayout;
@@ -46,6 +46,8 @@ public class CardPhotoSelector extends FrameLayout {
     private final PhotoThumbAdapter adapter = new PhotoThumbAdapter();
     private int maxCount = 8;
     private boolean required = false;
+    private CharSequence titleText = "";
+    private int requiredColor = 0;
     private OnImagesChanged callback;
     private OnPhotoClickListener photoClickListener;
 
@@ -79,19 +81,10 @@ public class CardPhotoSelector extends FrameLayout {
 
         // Build title text
         String defaultTitle = getResources().getString(R.string.product_photos);
-        String displayTitle = (title != null ? title : defaultTitle) + (required ? " *" : "");
-
-        // Set title text
-        cpsBinding.title.setText(displayTitle);
+        titleText = title != null ? title : defaultTitle;
+        requiredColor = cRequired;
+        applyRequiredIndicator();
         cpsBinding.title.setTextColor(colorTitle);
-
-        // Apply required indicator color if present
-        int starIndex = displayTitle.indexOf('*');
-        if (starIndex >= 0) {
-            SpannableString spannable = new SpannableString(displayTitle);
-            spannable.setSpan(new ForegroundColorSpan(cRequired), starIndex, starIndex + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-            cpsBinding.title.setText(spannable);
-        }
         cpsBinding.recycler.setLayoutManager(new GridLayoutManager(getContext(), 4));
         cpsBinding.recycler.setAdapter(adapter);
 
@@ -119,6 +112,32 @@ public class CardPhotoSelector extends FrameLayout {
                 photoClickListener.onPhotoClick(position, uri);
             }
         });
+    }
+
+    private void applyRequiredIndicator() {
+        if (TextUtils.isEmpty(titleText)) {
+            cpsBinding.title.setText("");
+            return;
+        }
+        if (!required) {
+            cpsBinding.title.setText(titleText);
+            return;
+        }
+        String display = titleText + " *";
+        SpannableString spannable = new SpannableString(display);
+        int starIndex = display.indexOf('*');
+        if (starIndex >= 0) {
+            int color = requiredColor != 0
+                    ? requiredColor
+                    : getResources().getColor(R.color.primary, getContext().getTheme());
+            spannable.setSpan(new ForegroundColorSpan(color), starIndex, starIndex + 1,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        cpsBinding.title.setText(spannable);
+    }
+
+    private boolean hasSelection() {
+        return !selectedUris.isEmpty();
     }
 
     private void launchPicker() {
@@ -158,6 +177,9 @@ public class CardPhotoSelector extends FrameLayout {
     }
 
     private void fire() {
+        if (required && hasSelection()) {
+            clearError();
+        }
         if (callback != null) callback.onChanged(new ArrayList<>(selectedUris));
     }
 
@@ -178,6 +200,9 @@ public class CardPhotoSelector extends FrameLayout {
         if (uris != null) {
             selectedUris.addAll(uris);
             adapter.replaceUris(uris);
+            if (hasSelection()) {
+                clearError();
+            }
         }
     }
 
@@ -197,6 +222,9 @@ public class CardPhotoSelector extends FrameLayout {
                 }
             }
             adapter.replaceUris(uris);
+            if (!uris.isEmpty()) {
+                clearError();
+            }
         }
     }
 
@@ -210,6 +238,51 @@ public class CardPhotoSelector extends FrameLayout {
         selectedUris.set(index, uri);
         adapter.updateUri(index, uri);
         fire();
+    }
+
+    public void setError(@Nullable String message) {
+        if (TextUtils.isEmpty(message)) {
+            cpsBinding.errorText.setVisibility(GONE);
+        } else {
+            cpsBinding.errorText.setText(message);
+            cpsBinding.errorText.setVisibility(VISIBLE);
+        }
+    }
+
+    public void clearError() {
+        setError(null);
+    }
+
+    public boolean isRequired() {
+        return required;
+    }
+
+    public void setRequired(boolean required) {
+        this.required = required;
+        applyRequiredIndicator();
+        if (hasSelection()) {
+            clearError();
+        }
+    }
+
+    public boolean validate() {
+        return validate(null);
+    }
+
+    public boolean validate(@Nullable String message) {
+        if (!required) {
+            clearError();
+            return true;
+        }
+        if (hasSelection()) {
+            clearError();
+            return true;
+        }
+        if (TextUtils.isEmpty(message)) {
+            message = getContext().getString(R.string.error_photos_required);
+        }
+        setError(message);
+        return false;
     }
 
     private Uri resolveMediaUri(LocalMedia media) {

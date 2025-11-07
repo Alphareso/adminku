@@ -223,6 +223,13 @@
     <string name="error_permission">Akses ditolak. Anda tidak memiliki izin untuk melakukan tindakan ini.</string>
     <string name="error_io">Kesalahan input/output terjadi. File mungkin rusak atau tidak dapat diakses.</string>
     <string name="error_unknown">Terjadi kesalahan yang tidak diketahui. Silakan mulai ulang aplikasi atau hubungi dukungan.</string>
+    <string name="error_field_required">Harus diisi</string>
+    <string name="error_product_name_required">Nama produk wajib diisi</string>
+    <string name="error_category_required">Kategori wajib dipilih</string>
+    <string name="error_buy_price_required">Harga beli wajib diisi</string>
+    <string name="error_sell_price_required">Harga jual wajib diisi</string>
+    <string name="error_photos_required">Minimal unggah satu foto produk</string>
+    <string name="error_fill_required_fields">Lengkapi semua data yang bertanda *</string>
 
     <!-- ========================================== -->
     <!-- FORMATTING -->

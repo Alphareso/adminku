@@ -39,6 +39,8 @@ public class CardInputView extends FrameLayout {
     private boolean required = false;
     private int maxLength = 0;
     private boolean showIcon = false;
+    private CharSequence titleText = "";
+    private int requiredColor = 0;
 
     private boolean isUpdating = false;
     private OnValueChangedListener listener;
@@ -85,21 +87,13 @@ public class CardInputView extends FrameLayout {
                 RoundedBackground.dp(getContext(),1), pos));
 
         // Title & colors
-        civBinding.txtTitle.setText(title != null ? title + (required ? " *" : "") : "");
+        titleText = title != null ? title : "";
+        requiredColor = cRequire;
         civBinding.txtTitle.setTextColor(cTitle);
+        applyRequiredIndicator();
         civBinding.editValue.setHint(hint);
         civBinding.editValue.setTextColor(cInput);
         civBinding.icLeft.setColorFilter(cIcon);
-        //ubah warna asterisk ke cRequire
-        if (required) {
-            String t = civBinding.txtTitle.getText().toString();
-            int starIndex = t.indexOf('*');
-            if (starIndex >= 0) {
-                SpannableString spannable = new SpannableString(t);
-                spannable.setSpan(new ForegroundColorSpan(cRequire), starIndex, starIndex + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                civBinding.txtTitle.setText(spannable);
-            }
-        }
         civBinding.icLeft.setVisibility(showIcon ? VISIBLE : GONE);
         if (showIcon && iconRes != 0) civBinding.icLeft.setImageResource(iconRes);
 
@@ -157,6 +151,9 @@ public class CardInputView extends FrameLayout {
                         isUpdating = false;
                     }
                 }
+                if (hasUserInput()) {
+                    clearError();
+                }
                 if (listener != null) listener.onChanged(extractTypedValue());
             }
         });
@@ -174,48 +171,52 @@ public class CardInputView extends FrameLayout {
 
     private void applyLayoutMode(boolean compact) {
         LinearLayout container = civBinding.container;
+        LinearLayout contentRow = civBinding.contentRow;
+        LinearLayout inputColumn = civBinding.inputColumn;
 
         if (compact) {
-            // Gunakan struktur yang sama dengan layout XML
-            // HeaderRow tetap ada, tapi orientation berubah jadi horizontal
-            container.setOrientation(LinearLayout.HORIZONTAL);
+            contentRow.setOrientation(LinearLayout.HORIZONTAL);
 
-            // Tambahkan weight ke headerRow
             LinearLayout.LayoutParams lpHeader = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.4f);
             civBinding.headerRow.setLayoutParams(lpHeader);
 
-            // Tambahkan weight dan gravity ke input
-            LinearLayout.LayoutParams lpInput = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams lpInputColumn = new LinearLayout.LayoutParams(
                     0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            lpInput.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
-            civBinding.editValue.setLayoutParams(lpInput);
+            lpInputColumn.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+            inputColumn.setLayoutParams(lpInputColumn);
+
+            civBinding.editValue.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             civBinding.editValue.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
 
-            // Pastikan counter juga ikut动了
             LinearLayout.LayoutParams lpCounter = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lpCounter.gravity = Gravity.END | Gravity.CENTER_VERTICAL;
+            lpCounter.gravity = Gravity.END;
             civBinding.counter.setLayoutParams(lpCounter);
 
             if (!multiline) {
                 civBinding.editValue.setSingleLine(true);
             }
         } else {
-            container.setOrientation(LinearLayout.VERTICAL);
+            contentRow.setOrientation(LinearLayout.VERTICAL);
 
-            // Reset params vertikal - headerRow full width
             civBinding.headerRow.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-            // Input full width
+            inputColumn.setLayoutParams(new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
             civBinding.editValue.setLayoutParams(new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-            // Reset gravities
             civBinding.txtTitle.setGravity(Gravity.START);
-            civBinding.editValue.setGravity(Gravity.START);
-            civBinding.counter.setGravity(Gravity.END);
+            civBinding.editValue.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+
+            LinearLayout.LayoutParams lpCounter = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lpCounter.gravity = Gravity.END;
+            civBinding.counter.setLayoutParams(lpCounter);
 
             if (!multiline) {
                 civBinding.editValue.setSingleLine(true);
@@ -227,7 +228,29 @@ public class CardInputView extends FrameLayout {
         container.requestLayout();
         container.invalidate();
 
+    }
 
+    private void applyRequiredIndicator() {
+        CharSequence base = titleText != null ? titleText : "";
+        if (TextUtils.isEmpty(base)) {
+            civBinding.txtTitle.setText("");
+            return;
+        }
+        if (!required) {
+            civBinding.txtTitle.setText(base);
+            return;
+        }
+        String display = base + " *";
+        SpannableString spannable = new SpannableString(display);
+        int starIndex = display.indexOf('*');
+        if (starIndex >= 0) {
+            int color = requiredColor != 0
+                    ? requiredColor
+                    : getResources().getColor(R.color.primary, getContext().getTheme());
+            spannable.setSpan(new ForegroundColorSpan(color), starIndex, starIndex + 1,
+                    Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        civBinding.txtTitle.setText(spannable);
     }
 
     private void ensureFocusableForInput() {
@@ -285,14 +308,29 @@ public class CardInputView extends FrameLayout {
                 currencyWatcher = new SafeTextWatcher() {
                     @Override public void afterTextChanged(Editable s) {
                         if (isUpdating) return;
-                        setUpdating(true);
-                        long val = CurrencyFormatter.parseCurrencyToLong(s.toString());
+                        String raw = s.toString();
+                        String digits = raw.replaceAll("[^0-9]", "");
+                        if (digits.isEmpty()) {
+                            if (raw.isEmpty()) {
+                                return;
+                            }
+                            isUpdating = true;
+                            civBinding.editValue.setText("");
+                            civBinding.editValue.setSelection(0);
+                            isUpdating = false;
+                            return;
+                        }
+                        long val = CurrencyFormatter.parseCurrencyToLong(raw);
                         String pretty = CurrencyFormatter.formatCurrency(val);
-                        if (!pretty.equals(s.toString())) {
+                        if (!pretty.equals(raw)) {
+                            isUpdating = true;
                             civBinding.editValue.setText(pretty);
                             civBinding.editValue.setSelection(pretty.length());
+                            isUpdating = false;
                         }
-                        setUpdating(false);
+                        if (hasUserInput()) {
+                            clearError();
+                        }
                     }
                 };
                 civBinding.editValue.addTextChangedListener(currencyWatcher);
@@ -361,6 +399,45 @@ public class CardInputView extends FrameLayout {
 
     public void setError (@Nullable String errorMsg) {
         civBinding.editValue.setError(errorMsg);
+        if (TextUtils.isEmpty(errorMsg)) {
+            civBinding.errorText.setVisibility(GONE);
+        } else {
+            civBinding.errorText.setText(errorMsg);
+            civBinding.errorText.setVisibility(VISIBLE);
+        }
+    }
+
+    public void clearError() {
+        setError(null);
+    }
+
+    public boolean isRequired() {
+        return required;
+    }
+
+    public void setRequired(boolean required) {
+        this.required = required;
+        applyRequiredIndicator();
+    }
+
+    public boolean validate() {
+        return validate(null);
+    }
+
+    public boolean validate(@Nullable String errorMessage) {
+        if (!required) {
+            clearError();
+            return true;
+        }
+        if (hasUserInput()) {
+            clearError();
+            return true;
+        }
+        if (TextUtils.isEmpty(errorMessage)) {
+            errorMessage = getResources().getString(R.string.error_field_required);
+        }
+        setError(errorMessage);
+        return false;
     }
 
     /** Generic string setter (used by margin/stock text). */
@@ -399,6 +476,9 @@ public class CardInputView extends FrameLayout {
         civBinding.editValue.setSelection(civBinding.editValue.length());
         isUpdating = false;
         if (listener != null) listener.onChanged(extractTypedValue());
+        if (hasUserInput()) {
+            clearError();
+        }
     }
     public String getText() { return civBinding.editValue.getText().toString(); }
 
@@ -411,5 +491,29 @@ public class CardInputView extends FrameLayout {
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
         @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
         @Override public void afterTextChanged(Editable s) {}
+    }
+
+    private boolean hasUserInput() {
+        String raw = getText();
+        if (raw == null) return false;
+        String trimmed = raw.trim();
+        if (trimmed.isEmpty()) return false;
+        switch (inputKind) {
+            case CURRENCY:
+            case NUMBER:
+            case STOCK:
+                return trimmed.replaceAll("[^0-9]", "").length() > 0;
+            case DECIMAL:
+                try {
+                    Double.parseDouble(trimmed.replace(',', '.'));
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            case BARCODE:
+            case TEXT:
+            default:
+                return trimmed.length() > 0;
+        }
     }
 }

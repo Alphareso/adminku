@@ -42,7 +42,7 @@ import dagger.hilt.android.AndroidEntryPoint;
 public class AddEditProductActivity extends AppCompatActivity {
     private static final String STATUS_LIVE = "LIVE";
     private static final String STATUS_ARCHIVED = "ARCHIVED";
-    private static final long DEFAULT_PRICE = 10000L;
+    private static final long DEFAULT_PRICE = 0L;
     private static final long DEFAULT_STOCK = 0L;
 
     private ActivityAddEditProductBinding binding;
@@ -627,21 +627,41 @@ public class AddEditProductActivity extends AppCompatActivity {
     }
 
     private boolean validateProductData() {
-        String name = binding.nameInput.getText().toString().trim();
-        String categoryId = viewModel.getCategoryId().getValue();
-
         boolean isValid = true;
 
-        if (name.isEmpty()) {
-            binding.nameInput.setError("Product name is required");
+        if (!binding.photoSelector.validate(getString(R.string.error_photos_required))) {
             isValid = false;
         }
 
-        if (categoryId == null || categoryId.isEmpty()) {
-            Log.w("AddEditProductActivity", "Category is required");
+        if (!binding.nameInput.validate(getString(R.string.error_product_name_required))) {
             isValid = false;
         }
 
+        if (!binding.buyPriceInput.validate(getString(R.string.error_buy_price_required))) {
+            isValid = false;
+        }
+
+        if (!binding.sellPriceInput.validate(getString(R.string.error_sell_price_required))) {
+            isValid = false;
+        }
+
+        if (!binding.categorySelect.validate(getString(R.string.error_category_required))) {
+            isValid = false;
+        }
+
+        String categoryId = viewModel.getCategoryId().getValue();
+        if (categoryId == null || categoryId.trim().isEmpty()) {
+            binding.categorySelect.setError(getString(R.string.error_category_required));
+            isValid = false;
+        }
+
+        if (!isValid) {
+            android.widget.Toast.makeText(
+                    this,
+                    getString(R.string.error_fill_required_fields),
+                    android.widget.Toast.LENGTH_SHORT
+            ).show();
+        }
         return isValid;
     }
 

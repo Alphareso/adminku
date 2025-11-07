@@ -10,7 +10,7 @@
         app:cardUseCompatPadding="false"
         app:cardElevation="0dp">
 
-        <!-- Single container, we'll switch orientation in code -->
+        <!-- Single container, content row stays vertical so error text is always below -->
         <LinearLayout
             android:id="@+id/container"
             android:layout_width="match_parent"
@@ -19,54 +19,78 @@
             android:orientation="vertical"
             android:gravity="center_vertical">
 
-            <!-- Title + Icon row -->
             <LinearLayout
-                android:id="@+id/headerRow"
+                android:id="@+id/contentRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:gravity="center_vertical">
 
-                <ImageView
-                    android:id="@+id/icLeft"
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:layout_marginEnd="8dp"
-                    android:visibility="gone"
-                    android:contentDescription="@null"/>
-
-                <TextView
-                    android:id="@+id/txtTitle"
-                    android:layout_width="wrap_content"
+                <!-- Title + Icon row -->
+                <LinearLayout
+                    android:id="@+id/headerRow"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textStyle="bold"
-                    android:textSize="16sp"/>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageView
+                        android:id="@+id/icLeft"
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:layout_marginEnd="8dp"
+                        android:visibility="gone"
+                        android:contentDescription="@null"/>
+
+                    <TextView
+                        android:id="@+id/txtTitle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textStyle="bold"
+                        android:textSize="16sp"/>
+                </LinearLayout>
+
+                <!-- Input column (edit text + counter) -->
+                <LinearLayout
+                    android:id="@+id/inputColumn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <EditText
+                        android:id="@+id/editValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@null"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="4dp"
+                        android:textSize="15sp"
+                        android:focusable="true"
+                        android:focusableInTouchMode="true"
+                        android:cursorVisible="true"
+                        android:scrollbars="vertical"
+                        android:gravity="start|center_vertical" />
+
+                    <TextView
+                        android:id="@+id/counter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="12sp"
+                        android:alpha="0.6"
+                        android:layout_gravity="end"
+                        android:visibility="gone"
+                        android:paddingTop="4dp"/>
+                </LinearLayout>
             </LinearLayout>
 
-            <!-- The real single EditText -->
-            <EditText
-                android:id="@+id/editValue"
+            <TextView
+                android:id="@+id/errorText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@null"
-                android:paddingTop="6dp"
-                android:paddingBottom="4dp"
-                android:textSize="15sp"
-                android:focusable="true"
-                android:focusableInTouchMode="true"
-                android:cursorVisible="true"
-                android:scrollbars="vertical"
-                android:gravity="start|center_vertical" />
-
-            <TextView
-                android:id="@+id/counter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:paddingTop="2dp"
+                android:textColor="@color/error"
                 android:textSize="12sp"
-                android:alpha="0.6"
-                android:layout_gravity="end"
-                android:visibility="gone"
-                android:paddingTop="4dp"/>
+                android:visibility="gone"/>
         </LinearLayout>
     </FrameLayout>
 </merge>

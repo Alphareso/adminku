@@ -48,8 +48,8 @@ public class AddEditProductViewModel extends ViewModel {
     private MutableLiveData<String> productNameLiveData = new MutableLiveData<>("");
     private MutableLiveData<String> productDescriptionLiveData = new MutableLiveData<>("");
     private MutableLiveData<String> productBarcodeLiveData = new MutableLiveData<>("");
-    private MutableLiveData<Long> productBuyPriceLiveData = new MutableLiveData<>(10000L);
-    private MutableLiveData<Long> productSellPriceLiveData = new MutableLiveData<>(15000L);
+    private MutableLiveData<Long> productBuyPriceLiveData = new MutableLiveData<>(0L);
+    private MutableLiveData<Long> productSellPriceLiveData = new MutableLiveData<>(0L);
     private MutableLiveData<Long> productStockLiveData = new MutableLiveData<>(0L);
 
     // Legacy fields kept for backward compatibility
@@ -57,8 +57,8 @@ public class AddEditProductViewModel extends ViewModel {
     private String productDescription;
     private String productBarcode;
     private String productStatusForSave = "active"; // Default to active/live
-    private long productBuyPrice = 10000; // Default buy price in cents (Rp 100)
-    private long productSellPrice = 15000; // Default sell price in cents (Rp 150)
+    private long productBuyPrice = 0;
+    private long productSellPrice = 0;
     private long productStock = 0; // Default stock
 
     public AddEditProductViewModel(ProductRepository productRepository, CategoryRepository categoryRepository, BrandRepository brandRepository) {
@@ -200,9 +200,9 @@ public class AddEditProductViewModel extends ViewModel {
                     product.setName(finalName != null && !finalName.trim().isEmpty() ? finalName : "Unnamed Product");
                     product.setDescription(productDescription != null ? productDescription : product.getDescription());
                     product.setBarcode(productBarcode != null ? productBarcode : product.getBarcode());
-                    product.setBuyPrice(productBuyPrice > 0 ? productBuyPrice : product.getBuyPrice());
-                    product.setSellPrice(productSellPrice > 0 ? productSellPrice : product.getSellPrice());
-                    product.setStock(productStock > 0 ? productStock : product.getStock());
+                    product.setBuyPrice(productBuyPrice);
+                    product.setSellPrice(productSellPrice);
+                    product.setStock(productStock);
                     product.setCategoryId(categoryId.getValue());
                     product.setBrandId(brandId.getValue());
                     product.setUnitId(unitId.getValue());

@@ -1,18 +1,19 @@
 package com.bdajaya.adminku.ui.components;
 
-import android.graphics.Bitmap;
 import android.net.Uri;
-import android.util.LruCache;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
-import android.view.MotionEvent;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.RecyclerView;
+
 import com.bdajaya.adminku.R;
 import com.bumptech.glide.Glide;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -43,9 +44,6 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
 
     private static final int TYPE_ADD = 0;
     private static final int TYPE_ITEM = 1;
-
-    // Bitmap cache to avoid repeated decoding
-    private final LruCache<String, Bitmap> bitmapCache = new LruCache<>(100);
 
     public void setOnAddClick(Runnable runnable) {
         this.onAddClick = runnable;
@@ -82,7 +80,6 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                 imageUris.add(Uri.parse(img));
             }
         }
-        bitmapCache.evictAll();
         notifyDataSetChanged();
     }
 
@@ -96,14 +93,11 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         if (uris != null) {
             imageUris.addAll(uris);
         }
-        bitmapCache.evictAll();
         notifyDataSetChanged();
     }
 
     public void removeImage(int position) {
         if (position >= 0 && position < imageUris.size()) {
-            String cacheKey = imageUris.get(position).toString();
-            bitmapCache.remove(cacheKey);
             imageUris.remove(position);
             notifyItemRemoved(position);
             notifyItemRangeChanged(position, imageUris.size() - position + 1);
@@ -115,8 +109,6 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             return;
         }
 
-        String cacheKey = imageUris.get(position).toString();
-        bitmapCache.remove(cacheKey);
         imageUris.set(position, uri);
         notifyItemChanged(position);
     }
@@ -223,7 +215,7 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             ((AddViewHolder) holder).bind(onAddClick);
         } else if (holder instanceof ImageViewHolder) {
             Uri uri = imageUris.get(position);
-            ((ImageViewHolder) holder).bind(uri, position, onRemove, onImageClick, bitmapCache, itemTouchHelper);
+            ((ImageViewHolder) holder).bind(uri, onRemove, onImageClick, itemTouchHelper);
         }
     }
 
@@ -269,11 +261,10 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         }
 
         void bind(Uri uri,
-                  int position,
                   OnRemove onRemove,
                   OnImageClick onImageClick,
-                  LruCache<String, Bitmap> bitmapCache,
                   ItemTouchHelper itemTouchHelper) {
+            Glide.with(imageView).clear(imageView);
             Glide.with(imageView.getContext())
                     .load(uri)
                     .placeholder(R.drawable.ic_image_placeholder)
@@ -281,21 +272,26 @@ public class PhotoThumbAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
                     .centerCrop()
                     .into(imageView);
 
-            imageView.setContentDescription("Photo " + (position + 1));
+            int adapterPosition = getBindingAdapterPosition();
+            int displayPosition = adapterPosition == RecyclerView.NO_POSITION ? 0 : adapterPosition;
+            imageView.setContentDescription("Photo " + (displayPosition + 1));
             removeButton.setVisibility(View.VISIBLE);
             dragSurface.setVisibility(View.VISIBLE);
 
             removeButton.setOnClickListener(v -> {
                 if (onRemove != null) {
-                    onRemove.onClick(position);
+                    int currentPosition = getBindingAdapterPosition();
+                    if (currentPosition != RecyclerView.NO_POSITION) {
+                        onRemove.onClick(currentPosition);
+                    }
                 }
             });
 
             imageView.setOnClickListener(v -> {
                 if (onImageClick != null) {
-                    int adapterPosition = getBindingAdapterPosition();
-                    if (adapterPosition != RecyclerView.NO_POSITION) {
-                        onImageClick.onClick(adapterPosition, uri);
+                    int currentPosition = getBindingAdapterPosition();
+                    if (currentPosition != RecyclerView.NO_POSITION) {
+                        onImageClick.onClick(currentPosition, uri);
                     }
                 }
             });

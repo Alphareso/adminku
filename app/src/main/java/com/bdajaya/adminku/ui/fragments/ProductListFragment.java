@@ -103,11 +103,13 @@ public class ProductListFragment extends Fragment {
         shimmerLayout.stopShimmer();
         shimmerLayout.setVisibility(View.GONE);
 
+        ProductManagementActivity activity = (ProductManagementActivity) requireActivity();
+        List<ProductWithDetails> normalized = activity.sortProductImagesForDisplay(products);
+
         // Update adapter
-        adapter.updateData(products);
+        adapter.updateData(normalized);
 
         // Show empty view if needed
-        emptyView.setVisibility(products.isEmpty() ? View.VISIBLE : View.GONE);
+        emptyView.setVisibility(normalized.isEmpty() ? View.VISIBLE : View.GONE);
     }
 }
-

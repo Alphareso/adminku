@@ -177,9 +177,10 @@ public class ProductManagementActivity extends AppCompatActivity {
         });
 
         viewModel.getSearchResults().observe(this, results -> {
-            if (viewModel.isSearching().getValue() != null && viewModel.isSearching().getValue()) {
-                tabAdapter.updateSearchResults(results);
-                binding.emptySearchView.setVisibility(results.isEmpty() ? View.VISIBLE : View.GONE);
+            if (Boolean.TRUE.equals(viewModel.isSearching().getValue())) {
+                List<ProductWithDetails> normalized = sortProductImagesForDisplay(results);
+                tabAdapter.updateSearchResults(normalized);
+                binding.emptySearchView.setVisibility(normalized.isEmpty() ? View.VISIBLE : View.GONE);
             }
         });
 
@@ -682,5 +683,23 @@ public class ProductManagementActivity extends AppCompatActivity {
     public ImageStorageManager getImageStorageManager() {
         AdminkuApplication app = (AdminkuApplication) getApplication();
         return app.getImageStorageManager();
+    }
+
+    public List<ProductWithDetails> sortProductImagesForDisplay(List<ProductWithDetails> products) {
+        if (products == null) {
+            return new ArrayList<>();
+        }
+        List<ProductWithDetails> normalized = new ArrayList<>(products.size());
+        for (ProductWithDetails product : products) {
+            if (product == null) {
+                continue;
+            }
+            if (product.images != null && product.images.size() > 1) {
+                product.images.sort((img1, img2) ->
+                        Integer.compare(img1.getOrderIndex(), img2.getOrderIndex()));
+            }
+            normalized.add(product);
+        }
+        return normalized;
     }
 }

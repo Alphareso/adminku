@@ -14,10 +14,11 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bdajaya.adminku.R;
+import com.bdajaya.adminku.data.manager.ImageStorageManager;
 import com.bdajaya.adminku.databinding.ViewCardPhotoSelectorBinding;
 import com.bdajaya.adminku.util.GlideEngine;
 import com.bdajaya.adminku.util.UCropEngine;
@@ -50,6 +51,7 @@ public class CardPhotoSelector extends FrameLayout {
     private int requiredColor = 0;
     private OnImagesChanged callback;
     private OnPhotoClickListener photoClickListener;
+    private final ImageStorageManager imageStorageManager;
 
     // Store Uris instead of base64
     private final List<Uri> selectedUris = new ArrayList<>();
@@ -59,6 +61,7 @@ public class CardPhotoSelector extends FrameLayout {
     public CardPhotoSelector(Context c, @Nullable AttributeSet a, int s) {
         super(c, a, s);
         cpsBinding = ViewCardPhotoSelectorBinding.inflate(LayoutInflater.from(c), this);
+        imageStorageManager = new ImageStorageManager(c);
 
         TypedArray ta = c.obtainStyledAttributes(a, R.styleable.CardPhotoSelector, s, 0);
         String title = ta.getString(R.styleable.CardPhotoSelector_cps_title);
@@ -100,12 +103,7 @@ public class CardPhotoSelector extends FrameLayout {
             fire();
         });
 
-        adapter.setOnOrderChanged((newOrder) -> {
-            // Update selectedUris to match new order
-            selectedUris.clear();
-            selectedUris.addAll(newOrder);
-            fire();
-        });
+        adapter.setOnOrderChanged(this::applyReorderedSelection);
 
         adapter.setOnImageClick((position, uri) -> {
             if (photoClickListener != null) {
@@ -196,36 +194,21 @@ public class CardPhotoSelector extends FrameLayout {
     }
 
     public void setImageUris(List<Uri> uris) {
-        selectedUris.clear();
-        if (uris != null) {
-            selectedUris.addAll(uris);
-            adapter.replaceUris(uris);
-            if (hasSelection()) {
-                clearError();
-            }
-        }
+        setSelectionSilently(uris);
     }
 
     // For edit mode: load existing images from paths
     public void setImagePaths(Context context, List<String> paths) {
-        selectedUris.clear();
+        List<Uri> uris = new ArrayList<>();
         if (paths != null) {
-            com.bdajaya.adminku.data.manager.ImageStorageManager storage =
-                    new com.bdajaya.adminku.data.manager.ImageStorageManager(context);
-
-            List<Uri> uris = new ArrayList<>();
             for (String path : paths) {
-                Uri uri = storage.getImageUri(path);
+                Uri uri = imageStorageManager.getImageUri(path);
                 if (uri != null) {
                     uris.add(uri);
-                    selectedUris.add(uri);
                 }
             }
-            adapter.replaceUris(uris);
-            if (!uris.isEmpty()) {
-                clearError();
-            }
         }
+        setSelectionSilently(uris);
     }
 
     public void replaceImageAt(int index, Uri uri) {
@@ -299,5 +282,27 @@ public class CardPhotoSelector extends FrameLayout {
             return Uri.parse(path);
         }
         return Uri.fromFile(new File(path));
+    }
+
+    private void setSelectionSilently(List<Uri> uris) {
+        List<Uri> safeUris = uris == null ? new ArrayList<>() : new ArrayList<>(uris);
+        selectedUris.clear();
+        selectedUris.addAll(safeUris);
+        adapter.replaceUris(selectedUris);
+        if (hasSelection()) {
+            clearError();
+        }
+    }
+
+    private void applyReorderedSelection(List<Uri> newOrder) {
+        if (newOrder == null) {
+            return;
+        }
+        selectedUris.clear();
+        selectedUris.addAll(new ArrayList<>(newOrder));
+        if (hasSelection()) {
+            clearError();
+        }
+        fire();
     }
 }
